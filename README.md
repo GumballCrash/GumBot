@@ -23,6 +23,9 @@ This bot runs with `python-irclib` 0.4.8. Newer versions may not have the necess
 
 For `python-skype` I used the version 1.0.31.0 provided at `ppa:skype-wrapper/ppa`. Although newer version is packaged even for Ubuntu 11.04, this package didn't work out of the box on Ubuntu 12.04.
 
+Module deps:
+* quotes and addquote require python-requests
+
 CONFIGURE
 ---------
 

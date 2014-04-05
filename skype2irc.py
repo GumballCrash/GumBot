@@ -38,6 +38,7 @@ from config import config
 
 import importlib
 import logging
+import traceback
 
 logging.basicConfig(level=logging.WARN,
                     format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
@@ -464,8 +465,9 @@ for modname in modconfig:
         module.ircbot = bot
         modules[modname] = module
         logging.info('Loaded module %s' % modname)
-    except:
-        logging.error('Failed to load module %s!' % modname)
+    except Exception, exc:
+        logging.error('Failed to load module %s! Exception follows:' % modname)
+        traceback.print_exc()
 
 print "Starting IRC bot..."
 bot.start()
