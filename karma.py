@@ -38,6 +38,11 @@ def getreason(msg, sender):
     else:
         return ''
 
+def fetch_karma(ktgt):
+    cur.execute('''SELECT SUM(`delta`) FROM karma WHERE `name` LIKE ?;''', (ktgt,))
+    ksum = cur.fetchone()[0]
+    return ksum
+
 def karmaparse(source, msg):
     msg = msg.strip()
     ismatch = exp.match(msg)
@@ -55,10 +60,15 @@ def karmaparse(source, msg):
             reason = ' for "%s"' % reason
         if subject == source.lower() and amount > 0:
             return "You can't give karma to yourself... loser."
-        else:
+        else:        	
             cur.execute('''INSERT INTO karma (`name`,`delta`,`comment`,`add_time`) VALUES (?,?,?,?)''', (subject, amount, reason, datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
             conn.commit()
-            return "%s gave %s %s karma%s." % (source, subject, ktype, reason)
+            if subject == config['nick'].lower() and amount > 0:
+            	return "Karma for %s is now %s. Thanks, %s!" % (subject, fetch_karma(subject), source)
+            elif subject == config['nick'].lower() and amount < 0:
+                return "Karma for %s is now %s. Pfft." % (subject, fetch_karma(subject))
+            else:
+            	return "Karma for %s is now %s." % (subject, fetch_karma(subject))
     else:
         return None
 
@@ -67,14 +77,24 @@ def get_karma(msg):
     if not m:
         return
     ktgt = m.group(1).strip()
-    cur.execute('''SELECT SUM(`delta`) FROM karma WHERE `name` LIKE ?;''', (ktgt,))
-    ksum = cur.fetchone()[0]
+    ksum = fetch_karma(ktgt)
     if ksum is None:
-        kstr = 'No karma recorded for %s.' % ktgt
+        kstr = 'No karma has ever been assigned to %s.' % ktgt
     else:
-        kstr = 'Current karma for %s is %s.' % (ktgt, ksum)
+        kstr = '%s has %s karma.' % (ktgt, ksum)
     return kstr
 
+
+"""
+def explain(msg):
+    m = re.match('!explain (.+)', msg)
+    if not m:
+        return
+    ktgt = m.group(1).strip()
+    cur.execute('''SELECT comment FROM karma where `name` LIKE ?;''', (ktgt,))
+"""
+
+	
 def irc_msg(source, target, msg):
     if not target in config['channels']:
         return
