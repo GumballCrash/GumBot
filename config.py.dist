@@ -5,6 +5,7 @@ config = {
 	"nick": "GumBot",
 	"botname": "IRC <-> Skype Bot",
 	"password": "",
+    "secret": "change_me",
 	"vhost": False,
 	"mirrors": {
         "#example": "blob"

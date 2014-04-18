@@ -29,6 +29,7 @@ import sys, signal
 import time, datetime
 import string, textwrap
 import json
+import os
 
 from ircbot import SingleServerIRCBot
 from irclib import ServerNotConnectedError
@@ -46,16 +47,63 @@ logging.basicConfig(level=logging.WARN,
 
 version = "0.22"
 
-servers = config['servers']
+def loadconfig():
+    global config
+    global servers
+    global nick
+    global botname
+    global password
+    global vhost
+    global mirrors
+    global modconfig
+    servers = config['servers']
+    nick = config['nick']
+    botname = config['botname'].decode("UTF-8")
+    password = config['password']
+    vhost = config['vhost']
+    mirrors = config['mirrors']
+    modconfig = config['modules']
+    
 
-nick = config['nick']
-botname = config['botname'].decode("UTF-8")
-password = config['password']
-vhost = config['vhost']
+def loadmodconfig():
+    global modules
+    logging.debug(modules)
+    for mname, mmod in modules.items():
+        if mname in modules:
+            logging.debug('updating config for %s' % mname)
+            mmod.config = modconfig[mname]
+            mmod.usemap = usemap
+            mmod.ircbot = bot
+        else:
+            logging.debug('module %s now missing config, disabling' % mname)
+            del modules[mname]
 
-mirrors = config['mirrors']
+def build_usemap(modules_ready=True):
+    if len(usemap) == 0:
+        for pair in mirrors:
+            if pair in usemap:
+                # skip existing channels
+                continue
+            chat = skype.CreateChatUsingBlob(mirrors[pair])
+            topic = chat.FriendlyName
+            print "Joined \"" + topic + "\""
+            usemap[pair] = chat
+            usemap[chat] = pair
+        # remove channels that have been removed from config
+        for pair in usemap.keys():
+            if pair not in mirrors:
+                # this should be sufficient because the mapping has been broken?
+                del usemap[pair]
+    # ??? why did I put this here
+    else:
+        for pair in mirrors:
+            pass
+    # update module configs
+    if modules_ready:
+        loadmodconfig()
 
-modconfig = config['modules']
+servers, nick, botname, password, vhost, mirrors, modconfig = (None,) * 7
+loadconfig()
 
 max_irc_msg_len = 442
 ping_interval = 2*60
@@ -226,7 +274,11 @@ class MirrorBot(SingleServerIRCBot):
     """Create IRC bot class"""
 
     def __init__(self):
-        SingleServerIRCBot.__init__(self, servers, nick, (botname).encode("UTF-8"), reconnect_interval)
+        SingleServerIRCBot.__init__(self,
+                                    servers,
+                                    nick,
+                                    (botname).encode("UTF-8"),
+                                    reconnect_interval)
 
     def start(self):
         """Override default start function to avoid starting/stalling the bot with no connection"""
@@ -339,7 +391,17 @@ class MirrorBot(SingleServerIRCBot):
             usemap[target].SendMessage(msg)
 
     def on_privmsg(self, connection, event):
-        """React to ON, OF(F), ST(ATUS), IN(FO) etc for switching gateway (from IRC side only)"""
+        """
+        Handles private commands. Known commands:
+        ON -- enable mirroring user to Skype
+        OF(F) -- disable mirroring user to Skype
+        ST(ATUS) -- get user's mirror status
+        IN(FO) #channel -- shows info about specified channel (Skype chat title and users in chat)
+        ?/HE/HI/WT -- displays help
+        AD(MIN) secret command [arguments] -- performs administrative commands
+        """
+        global config
+        global mirrors
         source = event.source().split('!')[0]
         raw = event.arguments()[0].decode('utf-8', 'ignore')
         args = raw.split()
@@ -401,7 +463,61 @@ class MirrorBot(SingleServerIRCBot):
                  msg += desc + '\n'
             msg = msg.rstrip("\n")
             bot.say(source, msg)
-            
+        
+        elif two == 'AD' and len(args) > 2 and 'secret' in config:
+            secret = args[1]
+            command = args[2].lower()
+            params = args[3:]
+            if secret != config['secret']:
+                bot.say(source, 'Permission denied.')
+            else:
+                if command == 'die':
+                    bot.say(source, 'Dying upon request.')
+                    self.connection.disconnect('Goodbye!')
+                    # rather ugly way to do this, but c'est la vie
+                    os._exit(0)
+                elif command == 'restart':
+                    bot.say(source, 'Restarting upon request.')
+                    self.connection.disconnect('Be right back!')
+                    # see above
+                    os._exit(10)
+                elif command == 'rehash':
+                    bot.say(source, 'Rehashing config...')
+                    logging.info('Rehashing config...')
+                    old_channels = mirrors.keys()
+                    reload(sys.modules['config'])
+                    from config import config
+                    loadconfig()
+                    loadmodconfig()
+                    build_usemap()
+                    for channel in mirrors.keys():
+                        if channel not in old_channels:
+                            self.connection.join(channel)
+                            print 'Joined %s' % channel
+                    bot.say(source, 'Rehashed config.')
+                    logging.info('Rehashed config.')
+                elif command == 'reload':
+                    if len(params) < 1:
+                        bot.say(source, 'Please specify a module.')
+                    elif params[0] not in sys.modules.keys():
+                        bot.say(source, 'Module %s is not loaded. To load a new module, you must restart the bot.' % params[0])
+                    else:
+                        bot.say(source, 'Reloading module %s...' % params[0])
+                        logging.info('Reloading module %s...' % params[0])
+                        try:
+                            modname = params[0]
+                            reload(sys.modules[modname])
+                            m = sys.modules[modname]
+                            m.config = modconfig[modname]
+                            m.usemap = usemap
+                            m.ircbot = bot
+                            modules[modname] = m
+                            bot.say(source, 'Reloaded module %s.' % params[0])
+                            logging.info('Reloaded module %s.' % params[0])
+                        except Exception, e:
+                            bot.say('Failed to reload module %s! Exception printed to console.')
+                            traceback.print_exc()
+        
         elif two in ('?', 'HE', 'HI', 'WT'): # HELP
             bot.say(source, botname + " " + version + " " + "\n * ON/OFF/STATUS --- Trigger mirroring to Skype\n * INFO #channel --- Display list of users from relevant Skype chat\nDetails: https://github.com/boamaod/skype2irc#readme")
 
@@ -440,13 +556,7 @@ except:
 
 print 'Skype API initialised.'
 
-for pair in mirrors:
-    chat = skype.CreateChatUsingBlob(mirrors[pair])
-    topic = chat.FriendlyName
-    print "Joined \"" + topic + "\""
-    usemap[pair] = chat
-    usemap[chat] = pair
-
+build_usemap(modules_ready=False)
 load_mutes()
 
 bot = MirrorBot()
@@ -460,14 +570,12 @@ modules = {}
 for modname in modconfig:
     try:
         module = importlib.import_module(modname)
-        module.config = modconfig[modname]
-        module.usemap = usemap
-        module.ircbot = bot
         modules[modname] = module
         logging.info('Loaded module %s' % modname)
     except Exception, exc:
         logging.error('Failed to load module %s! Exception follows:' % modname)
         traceback.print_exc()
+loadmodconfig()
 
 print "Starting IRC bot..."
 bot.start()
