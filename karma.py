@@ -2,20 +2,19 @@ import re
 import sqlite3
 import datetime
 
-conn = sqlite3.connect('karma.db')
-cur = conn.cursor()
-
-try:
-    cur.execute('''CREATE TABLE "karma" (
-        "id" INTEGER PRIMARY KEY AUTOINCREMENT,
-        "name" TEXT NOT NULL COLLATE NOCASE,
-        "delta" INTEGER,
-        "comment" TEXT,
-        "add_time" TEXT NOT NULL
-        );''')
-    conn.commit()
-except sqlite3.OperationalError:
-    pass
+with sqlite3.connect('karma.db') as conn:
+    cur = conn.cursor()
+    try:
+        cur.execute('''CREATE TABLE "karma" (
+            "id" INTEGER PRIMARY KEY AUTOINCREMENT,
+            "name" TEXT NOT NULL COLLATE NOCASE,
+            "delta" INTEGER,
+            "comment" TEXT,
+            "add_time" TEXT NOT NULL
+            );''')
+        conn.commit()
+    except sqlite3.OperationalError:
+        pass
 
 config = None
 usemap = None
@@ -39,8 +38,10 @@ def getreason(msg, sender):
         return ''
 
 def fetch_karma(ktgt):
-    cur.execute('''SELECT SUM(`delta`) FROM karma WHERE `name` LIKE ?;''', (ktgt,))
-    ksum = cur.fetchone()[0]
+    with sqlite3.connect('karma.db') as conn:
+        cur = conn.cursor()
+        cur.execute('''SELECT SUM(`delta`) FROM karma WHERE `name` LIKE ?;''', (ktgt,))
+        ksum = cur.fetchone()[0]
     return ksum
 
 def karmaparse(source, msg):
@@ -61,8 +62,10 @@ def karmaparse(source, msg):
         if subject == source.lower() and amount > 0:
             return "You can't give karma to yourself... loser."
         else:        	
-            cur.execute('''INSERT INTO karma (`name`,`delta`,`comment`,`add_time`) VALUES (?,?,?,?)''', (subject, amount, reason, datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
-            conn.commit()
+            with sqlite3.connect('karma.db') as conn:
+                cur = conn.cursor()
+                cur.execute('''INSERT INTO karma (`name`,`delta`,`comment`,`add_time`) VALUES (?,?,?,?)''', (subject, amount, reason, datetime.datetime.utcnow().strftime('%Y-%m-%d %H:%M:%S')))
+                conn.commit()
             if subject == config['nick'].lower() and amount > 0:
             	return "Karma for %s is now %s. Thanks, %s!" % (subject, fetch_karma(subject), source)
             elif subject == config['nick'].lower() and amount < 0:
