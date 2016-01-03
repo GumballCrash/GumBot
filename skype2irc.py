@@ -209,7 +209,7 @@ def decode_irc(raw, preferred_encs = preferred_encodings):
             res = raw.decode(enc, 'ignore')
             #enc += "+IGNORE"
     # Strip mIRC color codes (\x03XX,YY) from the message
-    stripped = re.sub(r"\x03\d+(,\d+)?", "", res)
+    stripped = re.sub(r"\x03\d{1,2}(,\d{1,2})?", "", res)
     return stripped
 
 def signal_handler(signal, frame):
