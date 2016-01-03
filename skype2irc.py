@@ -13,7 +13,7 @@
 # but WITHOUT ANY WARRANTY; without even the implied warranty of
 # MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 # GNU General Public License for more details.
-# 
+#
 # You should have received a copy of the GNU General Public License
 # along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
@@ -98,37 +98,37 @@ def get_relative_time(dt):
     now = datetime.datetime.now()
     delta_time = now - dt
 
-    delta =  delta_time.days * DAY + delta_time.seconds 
+    delta =  delta_time.days * DAY + delta_time.seconds
     minutes = delta / MINUTE
     hours = delta / HOUR
     days = delta / DAY
 
     if delta <= 0:
         return "in the future"
-    if delta < 1 * MINUTE: 
+    if delta < 1 * MINUTE:
       if delta == 1:
           return  "moment ago"
       else:
           return str(delta) + " seconds ago"
-    if delta < 2 * MINUTE:    
+    if delta < 2 * MINUTE:
         return "a minute ago"
-    if delta < 45 * MINUTE:    
+    if delta < 45 * MINUTE:
         return str(minutes) + " minutes ago"
-    if delta < 90 * MINUTE:    
+    if delta < 90 * MINUTE:
         return "an hour ago"
     if delta < 24 * HOUR:
         return str(hours) + " hours ago"
-    if delta < 48 * HOUR:    
+    if delta < 48 * HOUR:
         return "yesterday"
-    if delta < 30 * DAY:    
+    if delta < 30 * DAY:
         return str(days) + " days ago"
-    if delta < 12 * MONTH:    
+    if delta < 12 * MONTH:
         months = delta / MONTH
         if months <= 1:
             return "one month ago"
         else:
             return str(months) + " months ago"
-    else:    
+    else:
       years = days / 365.0
       if  years <= 1:
           return "one year ago"
@@ -279,7 +279,7 @@ class MirrorBot(SingleServerIRCBot):
                         time.sleep(delay_btw_seqs) # to avoid flood excess
         except ServerNotConnectedError:
             print "{" +target + " " + msg+"} SKIPPED!"
-            
+
     def notice(self, target, msg):
         """Send notices to channels/nicks"""
         self.say(self, target, msg, False)
@@ -349,7 +349,7 @@ class MirrorBot(SingleServerIRCBot):
         if not args:
             return
         two = args[0][:2].upper()
-        
+
         if two == 'ST': # STATUS
             muteds = []
             brdcsts = []
@@ -362,21 +362,21 @@ class MirrorBot(SingleServerIRCBot):
                 bot.say(source, "You're mirrored to Skype from " + ", ".join(brdcsts))
             if len(muteds) > 0:
                 bot.say(source, "You're silent to Skype on " + ", ".join(muteds))
-                
+
         if two == 'OF': # OFF
             for channel in mirrors.keys():
                 if source not in mutedl[channel]:
                     mutedl[channel].append(source)
                     save_mutes(channel)
             bot.say(source, "You're silent to Skype now")
-                
+
         elif two == 'ON': # ON
             for channel in mirrors.keys():
                 if source in mutedl[channel]:
                     mutedl[channel].remove(source)
                     save_mutes(channel)
             bot.say(source, "You're mirrored to Skype now")
-                
+
         elif two == 'IN' and len(args) > 1 and args[1] in mirrors: # INFO
             chat = usemap[args[1]]
             members = chat.Members
@@ -404,7 +404,7 @@ class MirrorBot(SingleServerIRCBot):
                  msg += desc + '\n'
             msg = msg.rstrip("\n")
             bot.say(source, msg)
-            
+
         elif two in ('?', 'HE', 'HI', 'WT'): # HELP
             bot.say(source, botname + " " + version + " " + "\n * ON/OFF/STATUS --- Trigger mirroring to Skype\n * INFO #channel --- Display list of users from relevant Skype chat\nDetails: https://github.com/boamaod/skype2irc#readme")
 
