@@ -28,6 +28,7 @@
 import sys, signal
 import time, datetime
 import string, textwrap
+import re
 import json
 
 from ircbot import SingleServerIRCBot
@@ -256,6 +257,8 @@ class MirrorBot(SingleServerIRCBot):
     def say(self, target, msg, do_say = True):
         """Send messages to channels/nicks"""
         try:
+            # Strip mIRC color codes (\x03XX,YY) from the message
+            msg = re.sub(r"\x03\d+(,\d+)?", "", msg)
             lines = msg.encode("UTF-8").split("\n")
             cur = 0
             for line in lines:
